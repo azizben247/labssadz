@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "661711729412",
+    "project_id": "labssadz-67b38",
+    "storage_bucket": "labssadz-67b38.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:661711729412:android:21a2a2e90dd751b15ad651",
+        "android_client_info": {
+          "package_name": "com.example.labsadz"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBpxPF0XBQfkqx3gkWSKKYVeyLTX8QwS9w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

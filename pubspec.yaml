@@ -1,0 +1,41 @@
+name: labssadz
+description: A new Flutter project.
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  sqflite: ^2.3.0  # أحدث إصدار لإدارة قاعدة البيانات المحلية
+  path_provider: ^2.1.1  # إدارة المسارات المحلية
+  shared_preferences: ^2.2.0  # تخزين البيانات بشكل دائم
+  crypto: ^3.0.3  # التشفير
+  convert: ^3.1.1  # تحويل البيانات
+  firebase_core: ^2.32.0  # Firebase الأساسي
+  firebase_auth: ^4.15.0  # تسجيل دخول Firebase
+  cloud_firestore: ^4.15.0  # قاعدة بيانات Firestore
+  firebase_storage: ^11.6.0  # تخزين الصور على Firebase
+  firebase_storage_web: ^3.8.10  
+  firebase_auth_web: ^5.9.8  
+  image_picker: ^1.0.7  
+  google_sign_in: ^6.1.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/tishrt.png
+    - assets/jeans.png
+    - assets/vast.png
+    - assets/watch.png
+    - assets/shoes.png
+    - assets/logo.png
