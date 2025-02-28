@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'product_details_page.dart';
+
 import 'add_product_page.dart';
 import 'all_images_page.dart'; // ✅ استيراد صفحة عرض جميع الصور
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'add_product_page.dart';
 import 'profile_page.dart';
 import 'settings_page.dart';
@@ -24,6 +25,8 @@ class _StorePageState extends State<StorePage> {
 
   @override
   Widget build(BuildContext context) {
+    User? user = FirebaseAuth.instance.currentUser; // ✅ التحقق من تسجيل الدخول
+
     return Scaffold(
       body: _pages[_currentIndex], // عرض الصفحة المختارة من القائمة السفلية
       bottomNavigationBar: BottomNavigationBar(
@@ -44,11 +47,25 @@ class _StorePageState extends State<StorePage> {
           BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'الإعدادات'),
         ],
       ),
+
+      // ✅ إضافة زر "إضافة منتج" يظهر فقط للمستخدمين المسجلين
+      floatingActionButton: user != null
+          ? FloatingActionButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => AddProductPage()),
+                );
+              },
+              backgroundColor: Colors.orange,
+              child: const Icon(Icons.add, color: Colors.white),
+            )
+          : null,
     );
   }
 }
 
-// ✅ صفحة عرض المنتجات من Firebase
+// ✅ صفحة عرض المنتجات من Firestore
 class ProductListPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -65,32 +82,64 @@ class ProductListPage extends StatelessWidget {
             crossAxisCount: 2,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
-            childAspectRatio: 0.8,
+            childAspectRatio: 0.75,
           ),
           itemCount: products.length,
           itemBuilder: (context, index) {
             var product = products[index];
+
             return Card(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              elevation: 5,
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
-                    child: Image.network(product['image'], fit: BoxFit.cover),
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(15),
+                        topRight: Radius.circular(15),
+                      ),
+                      child: Image.network(
+                        product['image'],
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Icon(Icons.image_not_supported, size: 80, color: Colors.grey);
+                        },
+                      ),
+                    ),
                   ),
                   Padding(
                     padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      product['name'],
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    child: Column(
+                      children: [
+                        Text(
+                          product['name'],
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          '${product['price']} DA',
+                          style: const TextStyle(fontSize: 14, color: Colors.orange),
+                        ),
+                        const SizedBox(height: 10),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("✅ تم طلب المنتج بنجاح!"), backgroundColor: Colors.green),
+                            );
+                          },
+                          icon: const Icon(Icons.shopping_cart),
+                          label: const Text('شراء'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  Text('${product['price']} DA', style: const TextStyle(color: Colors.orange)),
-                  ElevatedButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("✅ تم طلب المنتج بنجاح!"), backgroundColor: Colors.green),
-                      );
-                    },
-                    child: const Text('شراء'),
                   ),
                 ],
               ),

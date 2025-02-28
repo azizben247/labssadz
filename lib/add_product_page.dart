@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:uuid/uuid.dart';
 
 class AddProductPage extends StatefulWidget {
   const AddProductPage({super.key});
@@ -16,170 +16,163 @@ class _AddProductPageState extends State<AddProductPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
 
-  List<XFile> _selectedImages = [];
-  bool _isLoading = false;
-  String _selectedCategory = 'T-Shirts';
-  final List<String> categories = ['T-Shirts', 'Jeans', 'Vests', 'Shoes', 'Accessories'];
-  final ImagePicker _picker = ImagePicker();
+  File? _image; // 🔹 ملف الصورة المخزن محليًا
+  bool _isUploading = false;
 
-  Future<void> _pickImages() async {
-    final List<XFile>? pickedFiles = await _picker.pickMultiImage();
-    if (pickedFiles != null && pickedFiles.isNotEmpty) {
+  Future<void> _pickImage(ImageSource source) async {
+    final pickedFile = await ImagePicker().pickImage(source: source);
+    if (pickedFile != null) {
       setState(() {
-        _selectedImages = pickedFiles;
+        _image = File(pickedFile.path);
       });
     }
   }
 
-  Future<List<String>> _uploadImages() async {
-    List<String> imageUrls = [];
-
-    for (XFile imageFile in _selectedImages) {
-      String fileName = DateTime.now().millisecondsSinceEpoch.toString();
-      Reference ref = FirebaseStorage.instance.ref().child('products/$fileName.jpg');
-      await ref.putFile(File(imageFile.path));
-      String imageUrl = await ref.getDownloadURL();
-      imageUrls.add(imageUrl);
-    }
-    return imageUrls;
+  Future<String?> _uploadImage(File image) async {
+    String fileName = Uuid().v4(); // 🔹 إنشاء اسم فريد للصورة
+    Reference ref = FirebaseStorage.instance.ref().child("product_images/$fileName.jpg");
+    UploadTask uploadTask = ref.putFile(image);
+    TaskSnapshot snapshot = await uploadTask;
+    return await snapshot.ref.getDownloadURL(); // 🔹 الحصول على رابط الصورة
   }
 
-  Future<void> _uploadProduct() async {
-    if (_selectedImages.isEmpty || _nameController.text.isEmpty || _priceController.text.isEmpty) {
+  Future<void> _addProduct() async {
+    if (!_formKey.currentState!.validate() || _image == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("❌ يرجى إدخال جميع البيانات واختيار صورة"), backgroundColor: Colors.red),
+        const SnackBar(content: Text("يرجى إدخال جميع البيانات وتحميل صورة"), backgroundColor: Colors.red),
       );
       return;
     }
 
     setState(() {
-      _isLoading = true;
+      _isUploading = true;
     });
 
-    try {
-      List<String> imageUrls = await _uploadImages();
-      await FirebaseFirestore.instance.collection('products').add({
-        'name': _nameController.text,
-        'description': _descriptionController.text,
-        'price': double.parse(_priceController.text),
-        'category': _selectedCategory,
-        'images': imageUrls,
-        'sellerId': FirebaseAuth.instance.currentUser!.uid,
-        'createdAt': Timestamp.now(),
+    String? imageUrl = await _uploadImage(_image!);
+    if (imageUrl == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("فشل تحميل الصورة!"), backgroundColor: Colors.red),
+      );
+      setState(() {
+        _isUploading = false;
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("✅ تمت إضافة المنتج بنجاح!"), backgroundColor: Colors.green),
-      );
-      Navigator.pop(context);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("❌ حدث خطأ: $e"), backgroundColor: Colors.red),
-      );
+      return;
     }
 
-    setState(() {
-      _isLoading = false;
+    String productId = Uuid().v4(); // 🔹 إنشاء ID فريد للمنتج
+
+    await FirebaseFirestore.instance.collection('products').doc(productId).set({
+      'name': _nameController.text.trim(),
+      'description': _descriptionController.text.trim(),
+      'price': double.parse(_priceController.text.trim()),
+      'imageUrl': imageUrl, // 🔹 استخدام رابط الصورة المرفوعة
     });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("✅ تم إضافة المنتج بنجاح"), backgroundColor: Colors.green),
+    );
+
+    setState(() {
+      _isUploading = false;
+    });
+
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("إضافة منتج جديد"), backgroundColor: Colors.deepOrange),
-      body: SingleChildScrollView(
+      appBar: AppBar(title: const Text("إضافة منتج")),
+      body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: GestureDetector(
-                onTap: _pickImages,
-                child: _selectedImages.isNotEmpty
-                    ? SizedBox(
-                        height: 200,
-                        child: GridView.builder(
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 3, crossAxisSpacing: 8, mainAxisSpacing: 8),
-                          itemCount: _selectedImages.length,
-                          itemBuilder: (context, index) {
-                            return Stack(
-                              alignment: Alignment.topRight,
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(15),
-                                  child: Image.file(File(_selectedImages[index].path), fit: BoxFit.cover),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.cancel, color: Colors.red),
-                                  onPressed: () {
-                                    setState(() {
-                                      _selectedImages.removeAt(index);
-                                    });
-                                  },
-                                )
-                              ],
-                            );
-                          },
-                        ),
-                      )
-                    : Container(
-                        height: 200,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey),
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        child: const Center(
-                          child: Icon(Icons.image, size: 100, color: Colors.grey),
-                        ),
-                      ),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              GestureDetector(
+                onTap: () => _showImageSourceDialog(),
+                child: Container(
+                  height: 150,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: _image == null
+                      ? const Center(child: Text("اضغط لاختيار صورة 📷"))
+                      : Image.file(_image!, fit: BoxFit.cover),
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'أدخل اسم المنتج'),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'أدخل وصف المنتج'),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _priceController,
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'أدخل السعر DA'),
-            ),
-            const SizedBox(height: 10),
-            DropdownButtonFormField(
-              value: _selectedCategory,
-              items: categories.map((category) {
-                return DropdownMenuItem(value: category, child: Text(category));
-              }).toList(),
-              onChanged: (newValue) {
-                setState(() {
-                  _selectedCategory = newValue!;
-                });
-              },
-              decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'اختر الفئة'),
-            ),
-            const SizedBox(height: 20),
-            Center(
-              child: _isLoading
+              const SizedBox(height: 10),
+
+              _buildTextField(_nameController, "اسم المنتج", Icons.shopping_bag),
+              const SizedBox(height: 10),
+              _buildTextField(_descriptionController, "وصف المنتج", Icons.description),
+              const SizedBox(height: 10),
+              _buildTextField(_priceController, "السعر", Icons.attach_money, isNumeric: true),
+              const SizedBox(height: 20),
+
+              _isUploading
                   ? const CircularProgressIndicator()
-                  : ElevatedButton(
-                      onPressed: _uploadProduct,
+                  : ElevatedButton.icon(
+                      onPressed: _addProduct,
+                      icon: const Icon(Icons.add),
+                      label: const Text("إضافة المنتج"),
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                      child: const Text('➕ إضافة المنتج', style: TextStyle(fontSize: 18)),
                     ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  void _showImageSourceDialog() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text("اختر من المعرض"),
+                onTap: () {
+                  _pickImage(ImageSource.gallery);
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text("التقاط صورة بالكاميرا"),
+                onTap: () {
+                  _pickImage(ImageSource.camera);
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {bool isNumeric = false}) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(),
+      ),
+      validator: (value) {
+        if (value!.isEmpty) return "يرجى إدخال $label";
+        if (isNumeric && double.tryParse(value) == null) return "يرجى إدخال قيمة رقمية صحيحة";
+        return null;
+      },
     );
   }
 }

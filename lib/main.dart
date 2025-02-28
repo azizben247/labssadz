@@ -5,10 +5,12 @@ import 'firebase_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'login_page.dart';
 import 'home_page.dart';
+import 'add_product_page.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
+    options: DefaultFirebaseOptions.currentPlatform, 
   );
   runApp(const ClothingApp());
 }
@@ -23,7 +25,7 @@ class ClothingApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.orange,
       ),
-      home: const SplashScreen(), // ✅ شاشة البداية
+      home: const SplashScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
@@ -216,7 +218,6 @@ class CategoryPage extends StatelessWidget {
           },
         ),
       ),
-      // مثال لأسفل الشاشة، يمكن إضافة شريط تنقل إذا رغبت
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.black,
         selectedItemColor: Colors.orange,

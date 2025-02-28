@@ -22,8 +22,9 @@ dependencies:
   firebase_storage: ^11.6.0  # تخزين الصور على Firebase
   firebase_storage_web: ^3.8.10  
   firebase_auth_web: ^5.9.8  
-  image_picker: ^1.0.7  
+  image_picker: ^0.8.5+3
   google_sign_in: ^6.1.5
+  uuid: ^3.0.7  # أحدث إصدار لحزمة uuid
 
 dev_dependencies:
   flutter_test:
