@@ -286,4 +286,4 @@ class ProductDetailsPage extends StatelessWidget {
       ),
     );
   }
-}
+} 

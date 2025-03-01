@@ -5,6 +5,8 @@ import 'add_product_page.dart';
 import 'profile_page.dart';
 import 'settings_page.dart';
 import 'search_page.dart';
+import 'login_page.dart';
+
 
 class StorePage extends StatefulWidget {
   const StorePage({super.key});
@@ -17,7 +19,7 @@ class _StorePageState extends State<StorePage> {
   int _currentIndex = 0;
 
   final List<Widget> _pages = [
-    ProductListPage(),
+    ProductListPage(),  // ✅ التحقق من أن الصفحة موجودة
     SearchPage(),
     ProfilePage(),
     SettingsPage(),
@@ -28,6 +30,22 @@ class _StorePageState extends State<StorePage> {
     User? user = FirebaseAuth.instance.currentUser; // ✅ التحقق من تسجيل الدخول
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text("المتجر"),
+        backgroundColor: Colors.orange,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginPage()),
+              );
+            },
+          ),
+        ],
+      ),
       body: _pages[_currentIndex], // عرض الصفحة المختارة من القائمة السفلية
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
@@ -65,7 +83,7 @@ class _StorePageState extends State<StorePage> {
   }
 }
 
-// ✅ صفحة عرض المنتجات من Firestore
+// ✅ تعريف `ProductListPage` داخل `store_page.dart` إذا لم يكن لديك ملف منفصل
 class ProductListPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {

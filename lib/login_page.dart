@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'signup_page.dart';
 import 'store_page.dart';
 
@@ -16,7 +16,32 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  bool _isPasswordVisible = false;
+  bool _rememberMe = false; // متغير لحفظ خيار تذكر المستخدم
 
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedLogin(); // تحميل بيانات تسجيل الدخول عند فتح التطبيق
+  }
+
+  // تحميل بيانات تسجيل الدخول المخزنة
+  Future<void> _loadSavedLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? savedEmail = prefs.getString('email');
+    String? savedPassword = prefs.getString('password');
+    bool? remember = prefs.getBool('rememberMe');
+
+    if (savedEmail != null && savedPassword != null && remember == true) {
+      _emailController.text = savedEmail;
+      _passwordController.text = savedPassword;
+      setState(() {
+        _rememberMe = true;
+      });
+    }
+  }
+
+  // تسجيل الدخول وحفظ البيانات إذا تم تحديد خيار "تذكرني"
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -30,12 +55,33 @@ class _LoginPageState extends State<LoginPage> {
         password: _passwordController.text.trim(),
       );
 
+      // حفظ بيانات تسجيل الدخول إذا اختار المستخدم "تذكرني"
+      if (_rememberMe) {
+        final prefs = await SharedPreferences.getInstance();
+        prefs.setString('email', _emailController.text.trim());
+        prefs.setString('password', _passwordController.text.trim());
+        prefs.setBool('rememberMe', true);
+      } else {
+        _clearSavedLogin(); // حذف بيانات تسجيل الدخول إذا لم يتم تحديد الخيار
+      }
+
+      // الانتقال إلى الصفحة الرئيسية بعد تسجيل الدخول
       Navigator.pushReplacement(
           context, MaterialPageRoute(builder: (context) => const StorePage()));
     } on FirebaseAuthException catch (e) {
+      String errorMessage = "حدث خطأ، حاول مرة أخرى";
+
+      if (e.code == 'user-not-found') {
+        errorMessage = "المستخدم غير موجود";
+      } else if (e.code == 'wrong-password') {
+        errorMessage = "كلمة المرور غير صحيحة";
+      } else if (e.code == 'invalid-email') {
+        errorMessage = "البريد الإلكتروني غير صالح";
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text("❌ خطأ: ${e.message}"), backgroundColor: Colors.red),
+            content: Text("❌ $errorMessage"), backgroundColor: Colors.red),
       );
     }
 
@@ -44,24 +90,12 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
-  Future<void> signInWithGoogle() async {
-    try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) return;
-
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      await FirebaseAuth.instance.signInWithCredential(credential);
-      Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (context) => const StorePage()));
-    } catch (e) {
-      print("❌ خطأ في تسجيل الدخول بـ Google: $e");
-    }
+  // حذف بيانات تسجيل الدخول من `SharedPreferences`
+  Future<void> _clearSavedLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.remove('email');
+    prefs.remove('password');
+    prefs.remove('rememberMe');
   }
 
   @override
@@ -121,17 +155,29 @@ class _LoginPageState extends State<LoginPage> {
                     _buildTextField(
                         _passwordController, "كلمة المرور", Icons.lock,
                         isPassword: true),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 10),
+
+                    // خيار "تذكرني"
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: _rememberMe,
+                          onChanged: (value) {
+                            setState(() {
+                              _rememberMe = value!;
+                            });
+                          },
+                        ),
+                        const Text("تذكرني",
+                            style: TextStyle(color: Colors.white)),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
 
                     // زر تسجيل الدخول
                     _isLoading
                         ? const CircularProgressIndicator()
                         : _buildLoginButton(),
-
-                    const SizedBox(height: 10),
-
-                    // زر تسجيل الدخول بـ Google
-                    _buildGoogleSignInButton(),
 
                     const SizedBox(height: 10),
 
@@ -162,12 +208,25 @@ class _LoginPageState extends State<LoginPage> {
       {bool isPassword = false}) {
     return TextFormField(
       controller: controller,
-      obscureText: isPassword,
+      obscureText: isPassword ? !_isPasswordVisible : false,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(color: Colors.white70),
         prefixIcon: Icon(icon, color: Colors.white),
+        suffixIcon: isPassword
+            ? IconButton(
+                icon: Icon(
+                  _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                  color: Colors.white70,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _isPasswordVisible = !_isPasswordVisible;
+                  });
+                },
+              )
+            : null,
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
           borderSide: const BorderSide(color: Colors.white54),
@@ -177,17 +236,6 @@ class _LoginPageState extends State<LoginPage> {
           borderSide: const BorderSide(color: Colors.white),
         ),
       ),
-      validator: (value) {
-        if (value!.isEmpty) return "يرجى إدخال $label";
-        if (label == "البريد الإلكتروني" &&
-            !RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-          return "يرجى إدخال بريد إلكتروني صحيح";
-        }
-        if (label == "كلمة المرور" && value.length < 6) {
-          return "يجب أن تحتوي كلمة المرور على 6 أحرف على الأقل";
-        }
-        return null;
-      },
     );
   }
 
@@ -204,55 +252,11 @@ class _LoginPageState extends State<LoginPage> {
           gradient: const LinearGradient(
             colors: [Colors.orangeAccent, Colors.deepOrange],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 5,
-              spreadRadius: 2,
-            ),
-          ],
         ),
         child: const Text(
           "تسجيل الدخول",
           style: TextStyle(
               color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-      ),
-    );
-  }
-
-  // زر تسجيل الدخول بـ Google بشكل أنيق
-  Widget _buildGoogleSignInButton() {
-    return GestureDetector(
-      onTap: signInWithGoogle,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 15),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(15),
-          color: Colors.redAccent,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 5,
-              spreadRadius: 2,
-            ),
-          ],
-        ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.login, color: Colors.white),
-            SizedBox(width: 10),
-            Text(
-              "تسجيل الدخول بـ Google",
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold),
-            ),
-          ],
         ),
       ),
     );

@@ -13,7 +13,7 @@ dependencies:
     sdk: flutter
   sqflite: ^2.3.0  # أحدث إصدار لإدارة قاعدة البيانات المحلية
   path_provider: ^2.1.1  # إدارة المسارات المحلية
-  shared_preferences: ^2.2.0  # تخزين البيانات بشكل دائم
+  shared_preferences: ^2.2.2 # تخزين البيانات بشكل دائم
   crypto: ^3.0.3  # التشفير
   convert: ^3.1.1  # تحويل البيانات
   firebase_core: ^2.32.0  # Firebase الأساسي
