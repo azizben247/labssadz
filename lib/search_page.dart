@@ -33,9 +33,11 @@ class _SearchPageState extends State<SearchPage> {
           ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('products').snapshots(),
+              stream:
+                  FirebaseFirestore.instance.collection('products').snapshots(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                if (!snapshot.hasData)
+                  return const Center(child: CircularProgressIndicator());
 
                 var products = snapshot.data!.docs.where((doc) {
                   return doc['name'].toLowerCase().contains(searchQuery);
@@ -46,7 +48,8 @@ class _SearchPageState extends State<SearchPage> {
                   itemBuilder: (context, index) {
                     var product = products[index];
                     return ListTile(
-                      leading: Image.network(product['image'], width: 50, height: 50, fit: BoxFit.cover),
+                      leading: Image.network(product['imageUrl'],
+                          width: 50, height: 50, fit: BoxFit.cover),
                       title: Text(product['name']),
                       subtitle: Text('${product['price']} DA'),
                     );

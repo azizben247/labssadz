@@ -6,7 +6,8 @@ import 'profile_page.dart';
 import 'settings_page.dart';
 import 'search_page.dart';
 import 'login_page.dart';
-
+import 'dart:convert';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class StorePage extends StatefulWidget {
   const StorePage({super.key});
@@ -19,7 +20,7 @@ class _StorePageState extends State<StorePage> {
   int _currentIndex = 0;
 
   final List<Widget> _pages = [
-    ProductListPage(),  // ✅ التحقق من أن الصفحة موجودة
+    ProductListPage(), // ✅ التحقق من أن الصفحة موجودة
     SearchPage(),
     ProfilePage(),
     SettingsPage(),
@@ -62,7 +63,8 @@ class _StorePageState extends State<StorePage> {
           BottomNavigationBarItem(icon: Icon(Icons.store), label: 'المتجر'),
           BottomNavigationBarItem(icon: Icon(Icons.search), label: 'بحث'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'حسابي'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'الإعدادات'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.settings), label: 'الإعدادات'),
         ],
       ),
 
@@ -90,7 +92,8 @@ class ProductListPage extends StatelessWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('products').snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData)
+          return const Center(child: CircularProgressIndicator());
 
         final products = snapshot.data!.docs;
 
@@ -105,28 +108,33 @@ class ProductListPage extends StatelessWidget {
           itemCount: products.length,
           itemBuilder: (context, index) {
             var product = products[index];
+            // Decode the URL if it's encoded
+            String decodedUrl = Uri.decodeFull(product['imageUrl']);
 
             return Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15)),
               elevation: 5,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
                     child: ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(15),
-                        topRight: Radius.circular(15),
-                      ),
-                      child: Image.network(
-                        product['image'],
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Icon(Icons.image_not_supported, size: 80, color: Colors.grey);
-                        },
-                      ),
-                    ),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(15),
+                          topRight: Radius.circular(15),
+                        ),
+                        child: CachedNetworkImage(
+                          imageUrl: decodedUrl, // The decoded URL
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) =>
+                              const CircularProgressIndicator(),
+                          errorWidget: (context, url, error) => const Icon(
+                              Icons.image_not_supported,
+                              size: 80,
+                              color: Colors.grey),
+                        )),
                   ),
                   Padding(
                     padding: const EdgeInsets.all(8.0),
@@ -134,26 +142,31 @@ class ProductListPage extends StatelessWidget {
                       children: [
                         Text(
                           product['name'],
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 5),
                         Text(
                           '${product['price']} DA',
-                          style: const TextStyle(fontSize: 14, color: Colors.orange),
+                          style: const TextStyle(
+                              fontSize: 14, color: Colors.orange),
                         ),
                         const SizedBox(height: 10),
                         ElevatedButton.icon(
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("✅ تم طلب المنتج بنجاح!"), backgroundColor: Colors.green),
+                              const SnackBar(
+                                  content: Text("✅ تم طلب المنتج بنجاح!"),
+                                  backgroundColor: Colors.green),
                             );
                           },
                           icon: const Icon(Icons.shopping_cart),
                           label: const Text('شراء'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.orange,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
                       ],
