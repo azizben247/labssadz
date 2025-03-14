@@ -6,13 +6,31 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'login_page.dart';
 import 'home_page.dart';
 import 'add_product_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform, 
+    options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  await signInAsAdmin();
+
   runApp(const ClothingApp());
+}
+
+// ✅ Function to Sign in as an Admin
+Future<void> signInAsAdmin() async {
+  try {
+    await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: "nour@gmail.com", // 🔹 Replace with your Admin Email
+      password: "nour1998", // 🔹 Replace with your Admin Password
+    );
+
+    print("✅ Admin signed in successfully");
+  } catch (e) {
+    print("❌ Error signing in as admin: $e");
+  }
 }
 
 class ClothingApp extends StatelessWidget {
@@ -74,7 +92,7 @@ class _SplashScreenState extends State<SplashScreen>
               child: Column(
                 children: [
                   Image.asset(
-                    'assets/logo.png',
+                    'assets/images/logo.png',
                     width: 200,
                     errorBuilder: (context, error, stackTrace) {
                       return const Icon(Icons.image_not_supported,
@@ -116,11 +134,11 @@ class CategoryPage extends StatelessWidget {
   const CategoryPage({super.key});
 
   final List<Map<String, dynamic>> categories = const [
-    {'name': 'T-Shirts', 'image': 'assets/tishrt.png'},
-    {'name': 'Jeans', 'image': 'assets/jeans.png'},
-    {'name': 'Vests', 'image': 'assets/vast.png'},
-    {'name': 'Accessories', 'image': 'assets/watch.png'},
-    {'name': 'Shoes', 'image': 'assets/shoes.png'},
+    {'name': 'T-Shirts', 'image': 'assets/images/tishrt.png'},
+    {'name': 'Jeans', 'image': 'assets/images/jeans.png'},
+    {'name': 'Vests', 'image': 'assets/images/vast.png'},
+    {'name': 'Accessories', 'image': 'assets/images/watch.png'},
+    {'name': 'Shoes', 'image': 'assets/images/shoes.png'},
   ];
 
   @override
@@ -132,7 +150,7 @@ class CategoryPage extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Image.asset(
-              'assets/logo.png',
+              'assets/images/logo.png',
               height: 30,
               errorBuilder: (context, error, stackTrace) {
                 return const Icon(Icons.image_not_supported,
@@ -150,8 +168,7 @@ class CategoryPage extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: GridView.builder(
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount:
-                MediaQuery.of(context).size.width > 600 ? 3 : 2,
+            crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
             childAspectRatio: 0.85,
@@ -201,8 +218,7 @@ class CategoryPage extends StatelessWidget {
                       ),
                     ),
                     Padding(
-                      padding:
-                          const EdgeInsets.symmetric(vertical: 8.0),
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
                       child: Text(
                         categories[index]['name'],
                         style: const TextStyle(
@@ -278,12 +294,11 @@ class ProductDetailsPage extends StatelessWidget {
             Text(
               'Explore our latest collection of $category.',
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                  fontSize: 20, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
           ],
         ),
       ),
     );
   }
-} 
+}

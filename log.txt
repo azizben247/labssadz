@@ -1,0 +1,4 @@
+Error: The Flutter directory is not a clone of the GitHub project.
+       The flutter tool requires Git in order to operate properly;
+       to set up Flutter, run the following command:
+       git clone -b stable https://github.com/flutter/flutter.git
