@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'main.dart';
+import 'dart:io';
 
 // ✅ Correct conditional import to fix 'getFile' error
 import 'file_helper.dart' if (dart.library.io) 'file_helper_io.dart';
@@ -76,7 +77,7 @@ class _AddProductPageState extends State<AddProductPage> {
 
     try {
       String fileName =
-          "product_images/${DateTime.now().millisecondsSinceEpoch}.jpg";
+          "product_images/${DateTime.now().millisecondsSinceEpoch}";
       Reference ref = FirebaseStorage.instance.ref().child(fileName);
 
       UploadTask uploadTask;
@@ -90,11 +91,11 @@ class _AddProductPageState extends State<AddProductPage> {
           setState(() => _isUploading = false);
           return;
         }
-
+        print(_pickedFile!.path);
         uploadTask = ref.putData(
-          _imageBytes!,
-          SettableMetadata(contentType: "image/jpeg"),
-        );
+            _imageBytes!,
+            SettableMetadata(
+                contentType: "image/jpeg")); // Ensure correct metadata);
       } else {
         var selectedFile = getFile(_pickedFile!);
         if (selectedFile == null) {

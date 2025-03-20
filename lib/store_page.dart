@@ -120,21 +120,32 @@ class ProductListPage extends StatelessWidget {
                 children: [
                   Expanded(
                     child: ClipRRect(
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(15),
-                          topRight: Radius.circular(15),
-                        ),
-                        child: CachedNetworkImage(
-                          imageUrl: decodedUrl, // The decoded URL
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) =>
-                              const CircularProgressIndicator(),
-                          errorWidget: (context, url, error) => const Icon(
-                              Icons.image_not_supported,
-                              size: 80,
-                              color: Colors.grey),
-                        )),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(15),
+                        topRight: Radius.circular(15),
+                      ),
+                      child: //CachedNetworkImage(
+                          //   imageUrl:
+                          //       "https://firebasestorage.googleapis.com/v0/b/labssadz-67b38.firebasestorage.app/o/product_images/1742110262376.jpg?alt=media",
+                          //   placeholder: (context, url) =>
+                          //       CircularProgressIndicator(),
+                          //   errorWidget: (context, url, error) =>
+                          //       Icon(Icons.image_not_supported),
+                          // )
+                          Image.network(product['imageUrl']),
+                      // ),
+                      // child: CachedNetworkImage(
+                      //   imageUrl: decodedUrl, // The decoded URL
+                      //   width: double.infinity,
+                      //   fit: BoxFit.cover,
+                      //   placeholder: (context, url) =>
+                      //       const CircularProgressIndicator(),
+                      //   errorWidget: (context, url, error) => const Icon(
+                      //       Icons.image_not_supported,
+                      //       size: 80,
+                      //       color: Colors.grey),
+                      // )
+                    ),
                   ),
                   Padding(
                     padding: const EdgeInsets.all(8.0),

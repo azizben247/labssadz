@@ -22,7 +22,8 @@ class _CategoryPageState extends State<CategoryPage> {
 
   Future<void> _loadProducts() async {
     try {
-      QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('products').get();
+      QuerySnapshot snapshot =
+          await FirebaseFirestore.instance.collection('products').get();
       List<Map<String, dynamic>> loadedProducts = snapshot.docs.map((doc) {
         return {
           'name': doc['name'],
@@ -52,14 +53,17 @@ class _CategoryPageState extends State<CategoryPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Image.asset(
-              'assets/logo.png',
+              'assets/images/logo.png',
               height: 30,
               errorBuilder: (context, error, stackTrace) {
-                return const Icon(Icons.image_not_supported, size: 30, color: Colors.grey);
+                return const Icon(Icons.image_not_supported,
+                    size: 30, color: Colors.grey);
               },
             ),
             const SizedBox(width: 10),
-            const Text('Labssa DZ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+            const Text('Labssa DZ',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, color: Colors.white)),
           ],
         ),
         actions: [
@@ -83,7 +87,8 @@ class _CategoryPageState extends State<CategoryPage> {
             : GridView.builder(
                 padding: const EdgeInsets.all(16.0),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2,
+                  crossAxisCount:
+                      MediaQuery.of(context).size.width > 600 ? 3 : 2,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                   childAspectRatio: 0.85,
@@ -105,7 +110,8 @@ class _CategoryPageState extends State<CategoryPage> {
                       );
                     },
                     child: Card(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15)),
                       elevation: 5,
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -120,7 +126,8 @@ class _CategoryPageState extends State<CategoryPage> {
                                   fit: BoxFit.cover,
                                   width: double.infinity,
                                   errorBuilder: (context, error, stackTrace) {
-                                    return const Icon(Icons.image_not_supported, size: 40, color: Colors.grey);
+                                    return const Icon(Icons.image_not_supported,
+                                        size: 40, color: Colors.grey);
                                   },
                                 ),
                               ),
@@ -130,7 +137,10 @@ class _CategoryPageState extends State<CategoryPage> {
                             padding: const EdgeInsets.all(8.0),
                             child: Text(
                               _products[index]['name'],
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.deepOrange),
+                              style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.deepOrange),
                             ),
                           ),
                         ],
