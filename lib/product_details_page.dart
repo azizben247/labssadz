@@ -26,30 +26,43 @@ class ProductDetailsPage extends StatelessWidget {
     }
   }
 
-  Future<void> _addToWishlist(BuildContext context) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginPage()));
-      return;
-    }
-
-    try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('wishlist')
-          .doc(productData['id']) // تأكد من أن كل منتج يحتوي على id فريد
-          .set(productData);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("✅ تم الإضافة إلى المفضلة"), backgroundColor: Colors.green),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("❌ فشل الإضافة إلى المفضلة: $e"), backgroundColor: Colors.red),
-      );
-    }
+Future<void> _addToWishlist(BuildContext context) async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) {
+    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginPage()));
+    return;
   }
+
+  try {
+    // توليد معرف فريد إذا لم يكن موجودًا
+    String productId = productData['id'] ?? DateTime.now().millisecondsSinceEpoch.toString();
+
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('wishlist')
+        .doc(productId)
+        .set({
+          'id': productId,
+          'name': productData['name'] ?? 'بدون اسم',
+          'imageUrl': productData['imageUrl'] ?? '',
+          'price': productData['price'] ?? '',
+          'description': productData['description'] ?? '',
+          'sellerId': productData['sellerId'] ?? '',
+          'sellerPhone': productData['sellerPhone'] ?? '',
+          'sellerName': productData['sellerName'] ?? '',
+        });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("✅ تم الإضافة إلى المفضلة"), backgroundColor: Colors.green),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("❌ فشل الإضافة إلى المفضلة: $e"), backgroundColor: Colors.red),
+    );
+  }
+}
+
 
   @override
   Widget build(BuildContext context) {

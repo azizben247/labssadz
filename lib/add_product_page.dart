@@ -31,7 +31,7 @@ class _AddProductPageState extends State<AddProductPage> {
   String? _selectedCategory;
 
   // ✅ قائمة التصنيفات المتاحة
-  final List<String> _categories = ["Jeans", "T-Shirt", "Vest", "Accessoire", "Shoes"];
+final List<String> _categories = ["jeans", "tshirt", "vest", "accessoire", "shoes", "all"];
 
   // ✅ اختيار الصورة من المعرض
   Future<void> _pickImage(ImageSource source) async {

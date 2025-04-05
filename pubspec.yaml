@@ -12,41 +12,42 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_localizations:
-    sdk: flutter  # ✅ مكتبة الترجمة الصحيحة
-  sqflite: ^2.3.0  # ✅ أحدث إصدار لإدارة قاعدة البيانات المحلية
-  path_provider: ^2.1.1  # ✅ إدارة المسارات المحلية
-  shared_preferences: ^2.2.2  # ✅ تخزين البيانات بشكل دائم
-  crypto: ^3.0.3  # ✅ التشفير
-  convert: ^3.1.1  # ✅ تحويل البيانات
-  firebase_core: ^2.32.0  # ✅ Firebase الأساسي
-  firebase_auth: ^4.15.0  # ✅ تسجيل دخول Firebase
-  cloud_firestore: ^4.15.0  # ✅ قاعدة بيانات Firestore
-  firebase_storage: ^11.6.0  # ✅ تخزين الصور على Firebase
-  image_picker: ^1.1.2  # ✅ اختيار الصور من الهاتف
-  google_sign_in: ^6.1.5  # ✅ تسجيل الدخول عبر جوجل
-  uuid: ^3.0.7  # ✅ توليد أرقام UUID فريدة
-  cached_network_image: ^3.2.0  # ✅ تحميل الصور من الإنترنت بكفاءة
-  url_launcher: ^6.0.9  # ✅ فتح الروابط في المتصفح أو التطبيقات الخارجية
-  font_awesome_flutter: ^10.4.0 
-  
+    sdk: flutter
+  sqflite: ^2.3.0
+  path_provider: ^2.1.1
+  shared_preferences: ^2.2.2
+  crypto: ^3.0.3
+  convert: ^3.1.1
+  firebase_core: ^2.32.0
+  firebase_auth: ^4.15.0
+  cloud_firestore: ^4.15.0
+  firebase_storage: ^11.6.0
+  image_picker: ^1.1.2
+  google_sign_in: ^6.1.5
+  uuid: ^3.0.7
+  cached_network_image: ^3.2.0
+  url_launcher: ^6.0.9
+  font_awesome_flutter: ^10.4.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_launcher_icons: ^0.13.1  # ✅ آخر إصدار
+  flutter_launcher_icons: ^0.13.1
 
 flutter_icons:
   android: true
   ios: true
-  image_path: "assets/images/logo.png"  # ✅ تأكد من صحة المسار لشعار التطبيق
+  image_path: "assets/images/logo.png"
 
 flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/tishrt.png
-    - assets/images/jeans.png
-    - assets/images/vast.png
-    - assets/images/watch.png
-    - assets/images/shoes.png
+    - assets/images/categories/all.png
+    - assets/images/categories/vest.png
+    - assets/images/categories/shoes.png
+    - assets/images/categories/jeans.png
+    - assets/images/categories/tshirt.png
+    - assets/images/categories/accessoire.png
     - assets/images/logo.png
+    - assets/images/default_avatar.png

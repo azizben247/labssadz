@@ -140,7 +140,7 @@ class CategoryPage extends StatelessWidget {
       'Jeans': 'https://your-storage-link/jeans.png',
       'Vests': 'https://your-storage-link/vests.png',
       'Shoes': 'https://your-storage-link/shoes.png',
-      'Watch': 'https://your-storage-link/watch.png',
+      'accesoires': 'https://your-storage-link/accsoires.png',
     };
 
     return categoryImages[category] ?? 'https://via.placeholder.com/150';
