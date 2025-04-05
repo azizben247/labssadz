@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'signup_page.dart';
 import 'store_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
-
   @override
   _LoginPageState createState() => _LoginPageState();
 }
@@ -17,21 +18,19 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   bool _isPasswordVisible = false;
-  bool _rememberMe = false; // متغير لحفظ خيار تذكر المستخدم
+  bool _rememberMe = false;
 
   @override
   void initState() {
     super.initState();
-    _loadSavedLogin(); // تحميل بيانات تسجيل الدخول عند فتح التطبيق
+    _loadSavedLogin();
   }
 
-  // تحميل بيانات تسجيل الدخول المخزنة
   Future<void> _loadSavedLogin() async {
     final prefs = await SharedPreferences.getInstance();
     String? savedEmail = prefs.getString('email');
     String? savedPassword = prefs.getString('password');
     bool? remember = prefs.getBool('rememberMe');
-
     if (savedEmail != null && savedPassword != null && remember == true) {
       _emailController.text = savedEmail;
       _passwordController.text = savedPassword;
@@ -41,13 +40,9 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // تسجيل الدخول وحفظ البيانات إذا تم تحديد خيار "تذكرني"
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
       await FirebaseAuth.instance.signInWithEmailAndPassword(
@@ -55,22 +50,19 @@ class _LoginPageState extends State<LoginPage> {
         password: _passwordController.text.trim(),
       );
 
-      // حفظ بيانات تسجيل الدخول إذا اختار المستخدم "تذكرني"
       if (_rememberMe) {
         final prefs = await SharedPreferences.getInstance();
         prefs.setString('email', _emailController.text.trim());
         prefs.setString('password', _passwordController.text.trim());
         prefs.setBool('rememberMe', true);
       } else {
-        _clearSavedLogin(); // حذف بيانات تسجيل الدخول إذا لم يتم تحديد الخيار
+        _clearSavedLogin();
       }
 
-      // الانتقال إلى الصفحة الرئيسية بعد تسجيل الدخول
       Navigator.pushReplacement(
           context, MaterialPageRoute(builder: (context) => const StorePage()));
     } on FirebaseAuthException catch (e) {
       String errorMessage = "حدث خطأ، حاول مرة أخرى";
-
       if (e.code == 'user-not-found') {
         errorMessage = "المستخدم غير موجود";
       } else if (e.code == 'wrong-password') {
@@ -80,17 +72,13 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text("❌ $errorMessage"), backgroundColor: Colors.red),
+        SnackBar(content: Text("❌ $errorMessage"), backgroundColor: Colors.red),
       );
     }
 
-    setState(() {
-      _isLoading = false;
-    });
+    setState(() => _isLoading = false);
   }
 
-  // حذف بيانات تسجيل الدخول من `SharedPreferences`
   Future<void> _clearSavedLogin() async {
     final prefs = await SharedPreferences.getInstance();
     prefs.remove('email');
@@ -98,25 +86,63 @@ class _LoginPageState extends State<LoginPage> {
     prefs.remove('rememberMe');
   }
 
+// Google Sign-In مدمج بالكامل + تسجيل تلقائي بعد الدخول
+Future<void> _signInWithGoogle() async {
+  try {
+    final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+    if (googleUser == null) return; // المستخدم ألغى
+
+    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+
+    final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+
+    // تحقق هل المستخدم جديد (إذا لا توجد بيانات في Firestore)
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userCredential.user!.uid)
+        .get();
+
+    if (!userDoc.exists) {
+      // إنشاء بيانات المستخدم لأول مرة
+      await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+        'name': userCredential.user!.displayName ?? '',
+        'email': userCredential.user!.email ?? '',
+        'createdAt': Timestamp.now(),
+      });
+    }
+
+    // الانتقال إلى المتجر
+    Navigator.pushReplacement(
+        context, MaterialPageRoute(builder: (context) => const StorePage()));
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("❌ فشل تسجيل الدخول بـ Google: $e"), backgroundColor: Colors.red),
+    );
+  }
+}
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          // الخلفية المتدرجة
           Positioned.fill(
             child: Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.deepPurple, Colors.pinkAccent],
+                  colors: [Colors.purple, Colors.blueAccent],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
               ),
             ),
           ),
-
-          // صندوق زجاجي أنيق
           Center(
             child: Container(
               padding: const EdgeInsets.all(20),
@@ -124,48 +150,30 @@ class _LoginPageState extends State<LoginPage> {
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    spreadRadius: 2,
-                  ),
-                ],
               ),
               child: Form(
                 key: _formKey,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
-                      "تسجيل الدخول",
-                      style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white),
-                    ),
+                    const Text("تسجيل الدخول",
+                        style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white)),
                     const SizedBox(height: 20),
-
-                    // إدخال البريد الإلكتروني
                     _buildTextField(
                         _emailController, "البريد الإلكتروني", Icons.email),
                     const SizedBox(height: 10),
-
-                    // إدخال كلمة المرور
-                    _buildTextField(
-                        _passwordController, "كلمة المرور", Icons.lock,
-                        isPassword: true),
+                    _buildTextField(_passwordController, "كلمة المرور",
+                        Icons.lock, isPassword: true),
                     const SizedBox(height: 10),
-
-                    // خيار "تذكرني"
                     Row(
                       children: [
                         Checkbox(
                           value: _rememberMe,
                           onChanged: (value) {
-                            setState(() {
-                              _rememberMe = value!;
-                            });
+                            setState(() => _rememberMe = value!);
                           },
                         ),
                         const Text("تذكرني",
@@ -173,18 +181,24 @@ class _LoginPageState extends State<LoginPage> {
                       ],
                     ),
                     const SizedBox(height: 10),
-
-                    // زر تسجيل الدخول
                     _isLoading
                         ? const CircularProgressIndicator()
                         : _buildLoginButton(),
-
                     const SizedBox(height: 10),
-
-                    // زر الانتقال إلى صفحة التسجيل
+                    // ✅ زر تسجيل الدخول بـ Google
+                    OutlinedButton.icon(
+                      onPressed: _signInWithGoogle,
+                      icon: const Icon(Icons.login, color: Colors.white),
+                      label: const Text("تسجيل الدخول بـ Google",
+                          style: TextStyle(color: Colors.white)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.white),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     TextButton(
                       onPressed: () {
-                        Navigator.pushReplacement(
+                        Navigator.push(
                             context,
                             MaterialPageRoute(
                                 builder: (context) => const SignupPage()));
@@ -202,7 +216,6 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // عنصر إدخال بيانات احترافي
   Widget _buildTextField(
       TextEditingController controller, String label, IconData icon,
       {bool isPassword = false}) {
@@ -221,9 +234,7 @@ class _LoginPageState extends State<LoginPage> {
                   color: Colors.white70,
                 ),
                 onPressed: () {
-                  setState(() {
-                    _isPasswordVisible = !_isPasswordVisible;
-                  });
+                  setState(() => _isPasswordVisible = !_isPasswordVisible);
                 },
               )
             : null,
@@ -239,7 +250,6 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // زر تسجيل الدخول الاحترافي
   Widget _buildLoginButton() {
     return GestureDetector(
       onTap: _login,
@@ -253,12 +263,11 @@ class _LoginPageState extends State<LoginPage> {
             colors: [Colors.orangeAccent, Colors.deepOrange],
           ),
         ),
-        child: const Text(
-          "تسجيل الدخول",
-          style: TextStyle(
-              color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-        ),
+        child: const Text("تسجيل الدخول",
+            style: TextStyle(
+                color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
       ),
     );
   }
 }
+

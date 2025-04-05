@@ -6,10 +6,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'main.dart';
 import 'dart:io';
 
-// ✅ Correct conditional import to fix 'getFile' error
+// ✅ استيراد مساعد الملفات لتشغيل الصور عبر الويب والموبايل
 import 'file_helper.dart' if (dart.library.io) 'file_helper_io.dart';
 
 class AddProductPage extends StatefulWidget {
@@ -23,50 +22,51 @@ class _AddProductPageState extends State<AddProductPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   XFile? _pickedFile;
-  Uint8List? _imageBytes; // Stores image data for web
+  Uint8List? _imageBytes;
   bool _isUploading = false;
+  String? _selectedCategory;
 
+  // ✅ قائمة التصنيفات المتاحة
+  final List<String> _categories = ["Jeans", "T-Shirt", "Vest", "Accessoire", "Shoes"];
+
+  // ✅ اختيار الصورة من المعرض
   Future<void> _pickImage(ImageSource source) async {
     final ImagePicker _picker = ImagePicker();
     final XFile? pickedFile = await _picker.pickImage(source: source);
 
     if (pickedFile == null) {
-      print("❌ Error: No image selected");
+      print("❌ لم يتم تحديد صورة");
       return;
     }
 
     if (kIsWeb) {
       Uint8List? webImageBytes = await pickedFile.readAsBytes();
       if (webImageBytes == null) {
-        print("❌ Error: Failed to read image bytes (Web)");
+        print("❌ فشل في قراءة بيانات الصورة (Web)");
         return;
       }
-
       setState(() {
         _pickedFile = pickedFile;
-        _imageBytes = webImageBytes; // ✅ Ensure image bytes are set
+        _imageBytes = webImageBytes;
       });
-
-      print("✅ Image selected and bytes loaded successfully (Web)");
     } else {
       setState(() {
         _pickedFile = pickedFile;
       });
-
-      print("✅ Image selected successfully (Mobile)");
     }
   }
 
+  // ✅ تحميل الصورة إلى Firebase Storage وحفظ بيانات المنتج
   Future<void> _uploadImage() async {
-    print("📤 Uploading Product...");
+    print("📤 جاري رفع المنتج...");
 
-    if (_pickedFile == null) {
-      print("❌ Error: No file selected");
+    if (_pickedFile == null || _selectedCategory == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("❌ No file selected!")),
+        const SnackBar(content: Text("❌ يرجى اختيار صورة وتصنيف للمنتج!")),
       );
       return;
     }
@@ -76,37 +76,27 @@ class _AddProductPageState extends State<AddProductPage> {
     });
 
     try {
-      String fileName =
-          "product_images/${DateTime.now().millisecondsSinceEpoch}";
+      // ✅ تحديد مجلد التصنيف لحفظ الصور داخله
+      String fileName = "product_images/$_selectedCategory/${Uuid().v4()}";
       Reference ref = FirebaseStorage.instance.ref().child(fileName);
 
       UploadTask uploadTask;
 
       if (kIsWeb) {
         if (_imageBytes == null) {
-          print("❌ Error: _imageBytes is NULL before upload (Web)");
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("❌ Error: Image is NULL")),
-          );
           setState(() => _isUploading = false);
           return;
         }
-        print(_pickedFile!.path);
         uploadTask = ref.putData(
-            _imageBytes!,
-            SettableMetadata(
-                contentType: "image/jpeg")); // Ensure correct metadata);
+          _imageBytes!,
+          SettableMetadata(contentType: "image/jpeg"),
+        );
       } else {
         var selectedFile = getFile(_pickedFile!);
         if (selectedFile == null) {
-          print("❌ Error: getFile() returned null (Mobile)");
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("❌ Error: Could not get file")),
-          );
           setState(() => _isUploading = false);
           return;
         }
-
         uploadTask = ref.putFile(
           selectedFile,
           SettableMetadata(contentType: "image/jpeg"),
@@ -115,37 +105,36 @@ class _AddProductPageState extends State<AddProductPage> {
 
       TaskSnapshot snapshot = await uploadTask;
       String downloadUrl = await snapshot.ref.getDownloadURL();
-      print("✅ Image Upload Success: $downloadUrl");
+      print("✅ تم رفع الصورة بنجاح: $downloadUrl");
 
-      // ✅ Get Current User ID
       String userId = FirebaseAuth.instance.currentUser?.uid ?? "unknown_user";
 
-      // ✅ Save Product Details in Firestore
+      // ✅ حفظ بيانات المنتج في Firestore
       await FirebaseFirestore.instance.collection("products").add({
         "name": _nameController.text.trim(),
         "description": _descriptionController.text.trim(),
         "price": double.tryParse(_priceController.text.trim()) ?? 0.0,
         "imageUrl": downloadUrl,
-        "userId": userId, // ✅ Links product to the logged-in user
-        "timestamp": FieldValue.serverTimestamp(), // ✅ Sort products by time
+        "category": _selectedCategory!,
+        "sellerPhone": _phoneController.text.trim(),
+        "userId": userId,
+        "timestamp": FieldValue.serverTimestamp(),
       });
 
-      print("✅ Product saved to Firestore");
+      print("✅ تم حفظ المنتج في Firestore");
 
-      // ✅ Show success message
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("✅ Product uploaded successfully!")),
+        const SnackBar(content: Text("✅ تم رفع المنتج بنجاح!")),
       );
 
       await Future.delayed(const Duration(seconds: 2));
 
       if (mounted) {
-        Navigator.pop(context, downloadUrl); // Navigate back & return URL
+        Navigator.pop(context, downloadUrl);
       }
     } catch (e) {
-      print("❌ Upload failed: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("❌ Upload failed: $e")),
+        SnackBar(content: Text("❌ فشل الرفع: $e")),
       );
     } finally {
       if (mounted) {
@@ -157,85 +146,87 @@ class _AddProductPageState extends State<AddProductPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Add Product")),
+      appBar: AppBar(title: const Text("إضافة منتج"), backgroundColor: Colors.deepOrange),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
-          child: Column(
-            children: [
-              GestureDetector(
-                onTap: () => _pickImage(ImageSource.gallery),
-                child: Container(
-                  height: 150,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: _pickedFile == null
-                      ? const Center(child: Text("Select Image 📷"))
-                      : kIsWeb
-                          ? (_imageBytes == null
-                              ? const Center(
-                                  child: Text("❌ Error: Image is Null"))
-                              : Image.memory(_imageBytes!, fit: BoxFit.cover))
-                          : Image.file(getFile(_pickedFile!)!,
-                              fit: BoxFit.cover),
-                ),
-              ),
-              const SizedBox(height: 10),
-              _buildTextField(
-                  _nameController, "Product Name", Icons.shopping_bag),
-              const SizedBox(height: 10),
-              _buildTextField(
-                  _descriptionController, "Description", Icons.description),
-              const SizedBox(height: 10),
-              _buildTextField(_priceController, "Price", Icons.attach_money,
-                  isNumeric: true),
-              const SizedBox(height: 20),
-              _isUploading
-                  ? const Column(
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 10),
-                        Text("Uploading... Please wait"),
-                      ],
-                    ) // ✅ Show spinner & text
-                  : ElevatedButton.icon(
-                      onPressed: _isUploading
-                          ? null
-                          : _uploadImage, // ✅ Disable button when uploading
-                      icon: const Icon(Icons.add),
-                      label: const Text("Add Product"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _isUploading
-                            ? Colors.grey
-                            : Colors.orange, // ✅ Grey when disabled
-                      ),
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTap: () => _pickImage(ImageSource.gallery),
+                  child: Container(
+                    height: 150,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(10),
+                      color: Colors.grey[200],
                     ),
-            ],
+                    child: _pickedFile == null
+                        ? const Center(child: Text("📷 اختر صورة"))
+                        : kIsWeb
+                            ? Image.memory(_imageBytes!, fit: BoxFit.cover)
+                            : Image.file(getFile(_pickedFile!)!, fit: BoxFit.cover),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildTextField(_nameController, "اسم المنتج", Icons.shopping_bag),
+                const SizedBox(height: 10),
+                _buildTextField(_descriptionController, "الوصف", Icons.description),
+                const SizedBox(height: 10),
+                _buildTextField(_priceController, "السعر", Icons.attach_money, isNumeric: true),
+                const SizedBox(height: 10),
+                _buildTextField(_phoneController, "رقم الهاتف", Icons.phone, isNumeric: true),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  value: _selectedCategory,
+                  decoration: InputDecoration(
+                    labelText: "الفئة",
+                    border: OutlineInputBorder(),
+                  ),
+                  items: _categories.map((category) {
+                    return DropdownMenuItem(
+                      value: category,
+                      child: Text(category),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedCategory = value;
+                    });
+                  },
+                ),
+                const SizedBox(height: 20),
+                _isUploading
+                    ? const CircularProgressIndicator()
+                    : ElevatedButton.icon(
+                        onPressed: _isUploading ? null : _uploadImage,
+                        icon: const Icon(Icons.add),
+                        label: const Text("إضافة المنتج"),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                      ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildTextField(
-      TextEditingController controller, String label, IconData icon,
-      {bool isNumeric = false}) {
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {bool isNumeric = false}) {
     return TextFormField(
       controller: controller,
-      keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
+      keyboardType: isNumeric ? TextInputType.phone : TextInputType.text,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
         border: OutlineInputBorder(),
       ),
       validator: (value) {
-        if (value!.isEmpty) return "Please enter $label";
-        if (isNumeric && double.tryParse(value) == null)
-          return "Enter a valid number";
+        if (value!.isEmpty) return "يرجى إدخال $label";
+        if (isNumeric && double.tryParse(value) == null) return "أدخل رقمًا صحيحًا";
         return null;
       },
     );

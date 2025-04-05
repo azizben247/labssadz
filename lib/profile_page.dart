@@ -1,23 +1,23 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
   @override
-  _ProfilePageState createState() => _ProfilePageState();
+  State<ProfilePage> createState() => _ProfilePageState();
 }
 
 class _ProfilePageState extends State<ProfilePage> {
   final User? user = FirebaseAuth.instance.currentUser;
-  String? _userName;
-  String? _email;
-  String? _profileImageUrl;
-  bool _isLoading = false;
+  String? userName;
+  String? email;
+  String? profileImageUrl;
+  bool isLoading = true;
 
   @override
   void initState() {
@@ -25,213 +25,202 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadUserData();
   }
 
-  /// ✅ تحميل بيانات المستخدم من Firestore
   Future<void> _loadUserData() async {
     if (user != null) {
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user!.uid).get();
-      if (userDoc.exists) {
+      try {
+        final doc = await FirebaseFirestore.instance.collection('users').doc(user!.uid).get();
+        if (doc.exists) {
+          setState(() {
+            userName = doc['name'] ?? 'اسم المستخدم';
+            email = doc['email'] ?? user!.email!;
+            profileImageUrl = doc['profileImageUrl'];
+          });
+        } else {
+          setState(() {
+            userName = user!.displayName ?? 'اسم المستخدم';
+            email = user!.email;
+          });
+        }
+      } catch (e) {
+        debugPrint("❌ خطأ في جلب البيانات: $e");
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("فشل تحميل بيانات الحساب"), backgroundColor: Colors.red),
+        );
+      } finally {
         setState(() {
-          _userName = userDoc['name'];
-          _email = userDoc['email'];
-          _profileImageUrl = userDoc['profileImageUrl'];
+          isLoading = false;
         });
       }
     }
   }
 
-  /// ✅ اختيار صورة جديدة للبروفايل ورفعها إلى Firebase
-  Future<void> _updateProfileImage(ImageSource source) async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? pickedFile = await picker.pickImage(source: source);
-
-    if (pickedFile == null) return;
-
-    setState(() {
-      _isLoading = true;
-    });
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
 
     try {
-      Reference ref = FirebaseStorage.instance.ref().child('profile_images/${user!.uid}.jpg');
-      await ref.putFile(File(pickedFile.path));
-      String imageUrl = await ref.getDownloadURL();
+      final ref = FirebaseStorage.instance.ref().child('profile_images/${user!.uid}.jpg');
+      await ref.putFile(File(picked.path));
+      final imageUrl = await ref.getDownloadURL();
 
       await FirebaseFirestore.instance.collection('users').doc(user!.uid).update({
         'profileImageUrl': imageUrl,
       });
 
       setState(() {
-        _profileImageUrl = imageUrl;
+        profileImageUrl = imageUrl;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("✅ تم تحديث صورة البروفايل!"), backgroundColor: Colors.green),
+        const SnackBar(content: Text("✅ تم تحديث الصورة"), backgroundColor: Colors.green),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("❌ حدث خطأ أثناء التحديث: $e"), backgroundColor: Colors.red),
+        SnackBar(content: Text("❌ فشل رفع الصورة: $e"), backgroundColor: Colors.red),
       );
     }
-
-    setState(() {
-      _isLoading = false;
-    });
   }
 
-  /// ✅ تسجيل خروج المستخدم
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
     Navigator.pop(context);
   }
 
+  Stream<QuerySnapshot> _getUserProducts() {
+    return FirebaseFirestore.instance
+        .collection('products')
+        .where('userId', isEqualTo: user?.uid)
+        .snapshots();
+  }
+
+  Future<void> _deleteProduct(String productId, String? imageUrl) async {
+    bool confirm = await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("تأكيد الحذف"),
+        content: const Text("هل أنت متأكد أنك تريد حذف هذا المنتج؟"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("إلغاء")),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("حذف")),
+        ],
+      ),
+    );
+
+    if (!confirm) return;
+
+    try {
+      await FirebaseFirestore.instance.collection('products').doc(productId).delete();
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        final ref = FirebaseStorage.instance.refFromURL(imageUrl);
+        await ref.delete();
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("✅ تم حذف المنتج"), backgroundColor: Colors.green),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("❌ فشل حذف المنتج: $e"), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(title: const Text("الملف الشخصي"), backgroundColor: Colors.orange),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+      appBar: AppBar(
+        title: const Text('حسابي'),
+        backgroundColor: Colors.deepOrange,
+      ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator(color: Colors.deepPurple))
           : SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    /// ✅ صورة البروفايل مع زر التحديث
-                    Center(
-                      child: Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 70,
-                            backgroundImage: _profileImageUrl != null
-                                ? NetworkImage(_profileImageUrl!)
-                                : const AssetImage('assets/default_avatar.png') as ImageProvider,
-                            backgroundColor: Colors.grey[300],
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: GestureDetector(
-                              onTap: () => _showImagePickerDialog(),
-                              child: const CircleAvatar(
-                                backgroundColor: Colors.orange,
-                                radius: 22,
-                                child: Icon(Icons.camera_alt, color: Colors.white, size: 22),
-                              ),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Center(
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 55,
+                          backgroundImage: profileImageUrl != null
+                              ? NetworkImage(profileImageUrl!)
+                              : const AssetImage('assets/images/default_avatar.png') as ImageProvider,
+                          backgroundColor: Colors.deepPurple.shade100,
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: GestureDetector(
+                            onTap: _pickImage,
+                            child: const CircleAvatar(
+                              radius: 18,
+                              backgroundColor: Colors.deepOrange,
+                              child: Icon(Icons.camera_alt, color: Colors.white, size: 18),
                             ),
                           ),
-                        ],
-                      ),
+                        )
+                      ],
                     ),
-                    const SizedBox(height: 15),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    userName ?? 'اسم المستخدم',
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  Text(email ?? '', style: const TextStyle(color: Colors.grey)),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    onPressed: _logout,
+                    icon: const Icon(Icons.logout),
+                    label: const Text("تسجيل الخروج"),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  ),
+                  const Divider(height: 40),
+                  const Align(
+                    alignment: Alignment.centerRight,
+                    child: Text("منتجاتي", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(height: 10),
+                  StreamBuilder<QuerySnapshot>(
+                    stream: _getUserProducts(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                      final docs = snapshot.data!.docs;
 
-                    /// ✅ معلومات المستخدم
-                    Text(
-                      _userName ?? "اسم المستخدم",
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                    Text(
-                      _email ?? "البريد الإلكتروني",
-                      style: const TextStyle(color: Colors.white70),
-                    ),
-                    const SizedBox(height: 20),
+                      if (docs.isEmpty) {
+                        return const Text("لم تقم بإضافة أي منتج بعد.");
+                      }
 
-                    /// ✅ زر تسجيل الخروج
-                    ElevatedButton.icon(
-                      onPressed: _logout,
-                      icon: const Icon(Icons.logout, color: Colors.white),
-                      label: const Text("تسجيل الخروج"),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                    ),
+                      return ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: docs.length,
+                        itemBuilder: (context, index) {
+                          final doc = docs[index];
+                          final data = doc.data() as Map<String, dynamic>;
 
-                    const SizedBox(height: 20),
-                    const Divider(color: Colors.white30),
-
-                    /// ✅ المنتجات المضافة من قبل المستخدم
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text("📦 المنتجات المضافة", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                    ),
-                    const SizedBox(height: 10),
-
-                    StreamBuilder<QuerySnapshot>(
-                      stream: FirebaseFirestore.instance
-                          .collection('products')
-                          .where('userId', isEqualTo: user?.uid)
-                          .snapshots(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator());
-                        }
-                        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                          return const Center(child: Text("لا توجد منتجات مضافة بعد", style: TextStyle(color: Colors.white70)));
-                        }
-                        return ListView(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          children: snapshot.data!.docs.map((doc) {
-                            Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-                            return Card(
-                              color: Colors.white10,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                              child: ListTile(
-                                leading: Image.network(
-                                  data['imageUrl'],
-                                  width: 50,
-                                  height: 50,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported, color: Colors.white70),
-                                ),
-                                title: Text(data['name'], style: const TextStyle(color: Colors.white)),
-                                subtitle: Text("${data['price']} DA", style: const TextStyle(color: Colors.orange)),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.delete, color: Colors.red),
-                                  onPressed: () async {
-                                    await FirebaseFirestore.instance.collection('products').doc(doc.id).delete();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text("🗑 تم حذف المنتج"), backgroundColor: Colors.red),
-                                    );
-                                  },
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        );
-                      },
-                    ),
-                  ],
-                ),
+                          return ListTile(
+                            contentPadding: const EdgeInsets.all(8),
+                            leading: CircleAvatar(
+                              backgroundImage: data['imageUrl'] != null
+                                  ? NetworkImage(data['imageUrl'])
+                                  : const AssetImage('assets/images/default_avatar.png') as ImageProvider,
+                            ),
+                            title: Text(data['name'] ?? 'منتج بدون اسم'),
+                            subtitle: Text("${data['price']} دج"),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _deleteProduct(doc.id, data['imageUrl']),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  )
+                ],
               ),
             ),
-    );
-  }
-
-  /// ✅ اختيار صورة البروفايل
-  void _showImagePickerDialog() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return SafeArea(
-          child: Wrap(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_library, color: Colors.orange),
-                title: const Text("اختر من المعرض"),
-                onTap: () {
-                  _updateProfileImage(ImageSource.gallery);
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.camera_alt, color: Colors.orange),
-                title: const Text("التقاط صورة بالكاميرا"),
-                onTap: () {
-                  _updateProfileImage(ImageSource.camera);
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 }

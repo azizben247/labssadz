@@ -1,168 +1,148 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'product_details_page.dart';
 
-import 'add_product_page.dart';
-import 'all_images_page.dart'; // ✅ استيراد صفحة عرض جميع الصور
-
-class CategoryPage extends StatefulWidget {
-  const CategoryPage({super.key});
-
-  @override
-  _CategoryPageState createState() => _CategoryPageState();
-}
-
-class _CategoryPageState extends State<CategoryPage> {
-  List<Map<String, dynamic>> _products = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadProducts();
-  }
-
-  Future<void> _loadProducts() async {
-    try {
-      QuerySnapshot snapshot =
-          await FirebaseFirestore.instance.collection('products').get();
-      List<Map<String, dynamic>> loadedProducts = snapshot.docs.map((doc) {
-        return {
-          'name': doc['name'],
-          'description': doc['description'],
-          'price': doc['price'],
-          'category': doc['category'],
-          'image': doc['image'],
-        };
-      }).toList();
-
-      setState(() {
-        _products = loadedProducts;
-      });
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("❌ خطأ في تحميل المنتجات: $e")),
-      );
-    }
-  }
-
+class CategoryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              'assets/images/logo.png',
-              height: 30,
-              errorBuilder: (context, error, stackTrace) {
-                return const Icon(Icons.image_not_supported,
-                    size: 30, color: Colors.grey);
-              },
-            ),
-            const SizedBox(width: 10),
-            const Text('Labssa DZ',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold, color: Colors.white)),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.image, color: Colors.orange),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => AllImagesPage(products: _products),
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('products').snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text("❌ خطأ في جلب البيانات: ${snapshot.error}"));
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(
+            child: Text("🛒 لا توجد منتجات متاحة حالياً!", style: TextStyle(fontSize: 18)),
+          );
+        }
+
+        // ✅ تصنيف المنتجات حسب الفئة
+        Map<String, List<DocumentSnapshot>> categorizedProducts = {};
+        for (var doc in snapshot.data!.docs) {
+          var data = doc.data() as Map<String, dynamic>;
+          String category = data['category'] ?? "غير مصنف";
+          
+          if (!categorizedProducts.containsKey(category)) {
+            categorizedProducts[category] = [];
+          }
+          categorizedProducts[category]!.add(doc);
+        }
+
+        return ListView(
+          children: categorizedProducts.keys.map((category) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ✅ عرض صورة الفئة وعنوانها
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    children: [
+                      CachedNetworkImage(
+                        imageUrl: _getCategoryImage(category), // جلب الصورة الخاصة بالفئة
+                        height: 120,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                        errorWidget: (context, url, error) => const Icon(Icons.image_not_supported, size: 80, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        category,
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.orange),
+                      ),
+                    ],
+                  ),
                 ),
-              );
-            },
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadProducts,
-        child: _products.isEmpty
-            ? const Center(child: CircularProgressIndicator())
-            : GridView.builder(
-                padding: const EdgeInsets.all(16.0),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount:
-                      MediaQuery.of(context).size.width > 600 ? 3 : 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 0.85,
-                ),
-                itemCount: _products.length,
-                itemBuilder: (context, index) {
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ProductDetailsPage(
-                            name: _products[index]['name'],
-                            description: _products[index]['description'],
-                            price: _products[index]['price'],
-                            image: _products[index]['image'],
+
+                // ✅ المنتجات الخاصة بهذه الفئة
+                Container(
+                  height: 250, // لجعل المنتجات تظهر أفقياً تحت الصورة
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: categorizedProducts[category]!.length,
+                    itemBuilder: (context, index) {
+                      var productData = categorizedProducts[category]![index].data() as Map<String, dynamic>;
+                      String imageUrl = productData['imageUrl'] ?? '';
+
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProductDetailsPage(product: productData),
+                            ),
+                          );
+                        },
+                        child: Card(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                          elevation: 5,
+                          margin: const EdgeInsets.all(8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(15),
+                                    topRight: Radius.circular(15),
+                                  ),
+                                  child: CachedNetworkImage(
+                                    imageUrl: Uri.encodeFull(imageUrl),
+                                    width: 150,
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                                    errorWidget: (context, url, error) {
+                                      print("❌ فشل تحميل الصورة: $url");
+                                      return const Icon(Icons.image_not_supported, size: 80, color: Colors.grey);
+                                    },
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      productData['name'] ?? 'اسم غير متوفر',
+                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      '${productData['price'] ?? 0} DA',
+                                      style: const TextStyle(fontSize: 14, color: Colors.orange),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       );
                     },
-                    child: Card(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15)),
-                      elevation: 5,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(15),
-                                child: Image.network(
-                                  _products[index]['image'],
-                                  fit: BoxFit.cover,
-                                  width: double.infinity,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return const Icon(Icons.image_not_supported,
-                                        size: 40, color: Colors.grey);
-                                  },
-                                ),
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(
-                              _products[index]['name'],
-                              style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.deepOrange),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.orange,
-        onPressed: () async {
-          bool? productAdded = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddProductPage()),
-          );
-          if (productAdded == true) {
-            _loadProducts();
-          }
-        },
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+                  ),
+                ),
+              ],
+            );
+          }).toList(),
+        );
+      },
     );
+  }
+
+  // ✅ دالة للحصول على صورة الفئة
+  String _getCategoryImage(String category) {
+    Map<String, String> categoryImages = {
+      'T-Shirts': 'https://your-storage-link/tshirts.png',
+      'Jeans': 'https://your-storage-link/jeans.png',
+      'Vests': 'https://your-storage-link/vests.png',
+      'Shoes': 'https://your-storage-link/shoes.png',
+      'Watch': 'https://your-storage-link/watch.png',
+    };
+
+    return categoryImages[category] ?? 'https://via.placeholder.com/150';
   }
 }
