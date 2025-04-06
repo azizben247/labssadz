@@ -36,6 +36,7 @@ class _SignupPageState extends State<SignupPage> {
         'name': _nameController.text.trim(),
         'email': _emailController.text.trim(),
         'createdAt': Timestamp.now(),
+        'points': 0,
       });
 
       ScaffoldMessenger.of(context).showSnackBar(

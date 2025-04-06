@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
+
 import 'product_details_page.dart';
+import 'recharge_points_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -19,6 +21,13 @@ class _ProfilePageState extends State<ProfilePage> {
   String? name;
   String? imageUrl;
   bool isLoading = true;
+  int points = 0;
+
+  @override
+  void initState() {
+    fetchUserData();
+    super.initState();
+  }
 
   Future<void> fetchUserData() async {
     if (user == null) return;
@@ -28,6 +37,7 @@ class _ProfilePageState extends State<ProfilePage> {
       setState(() {
         name = data['name'] ?? user!.displayName ?? 'Labssa User';
         imageUrl = data['imageUrl'];
+        points = data['points'] ?? 0;
         isLoading = false;
       });
     }
@@ -42,36 +52,44 @@ class _ProfilePageState extends State<ProfilePage> {
     await ref.putFile(File(file.path));
     final downloadUrl = await ref.getDownloadURL();
 
-    await FirebaseFirestore.instance.collection("users").doc(user!.uid).update({"imageUrl": downloadUrl});
+    await FirebaseFirestore.instance.collection("users").doc(user!.uid).update({
+      "imageUrl": downloadUrl
+    });
+
     setState(() => imageUrl = downloadUrl);
   }
 
   Future<void> updateName(String newName) async {
-    await FirebaseFirestore.instance.collection("users").doc(user!.uid).update({"name": newName});
+    await FirebaseFirestore.instance.collection("users").doc(user!.uid).update({
+      "name": newName
+    });
     setState(() => name = newName);
   }
 
-  Future<int> getSalesCount() async {
-    final snapshot = await FirebaseFirestore.instance
-        .collection("sales")
-        .where("sellerId", isEqualTo: user!.uid)
-        .get();
-    return snapshot.docs.length;
-  }
-
-  Future<int> getPoints() async {
-    final sales = await getSalesCount();
-    return sales <= 1 ? 0 : ((sales - 1) * 10); // المبيعة الأولى مجانية
-  }
-
   Future<void> deleteProduct(String productId) async {
-    await FirebaseFirestore.instance.collection("products").doc(productId).delete();
+    await FirebaseFirestore.instance.collection('products').doc(productId).delete();
   }
 
-  @override
-  void initState() {
-    fetchUserData();
-    super.initState();
+  Future<void> markProductAsSold(String productId) async {
+    await FirebaseFirestore.instance.collection('sales').add({
+      "productId": productId,
+      "sellerId": user!.uid,
+      "timestamp": Timestamp.now(),
+    });
+
+    // نقاط: أول عملية بيع مجانية
+    final snapshot = await FirebaseFirestore.instance.collection('sales')
+        .where('sellerId', isEqualTo: user!.uid).get();
+
+    int count = snapshot.docs.length;
+
+    if (count > 1) {
+      int newPoints = (count - 1) * 10;
+      await FirebaseFirestore.instance.collection("users").doc(user!.uid).update({
+        "points": newPoints
+      });
+      setState(() => points = newPoints);
+    }
   }
 
   @override
@@ -90,6 +108,7 @@ class _ProfilePageState extends State<ProfilePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // ✅ صورة واسم المستخدم
                   Row(
                     children: [
                       GestureDetector(
@@ -137,28 +156,31 @@ class _ProfilePageState extends State<ProfilePage> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  FutureBuilder(
-                    future: getPoints(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) return const CircularProgressIndicator();
-                      return Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildStat("Points", snapshot.data!),
-                        ],
-                      );
-                    },
+
+                  // ✅ النقاط
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildStat("Points", points),
+                    ],
                   ),
+
                   const Divider(height: 30),
+                  // ✅ خيارات
                   _buildOption("My Account", Icons.person),
                   _buildOption("Notifications", Icons.notifications),
                   _buildOption("Settings", Icons.settings),
                   _buildOption("Help Center", Icons.help),
+                  _buildOption("Recharge Points", Icons.credit_score, onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const RechargePointsPage()));
+                  }),
                   _buildOption("Log Out", Icons.logout, onTap: () async {
                     await FirebaseAuth.instance.signOut();
                     Navigator.of(context).pop();
                   }),
                   const Divider(height: 30),
+
+                  // ✅ المنتجات الخاصة بالمستخدم
                   const Text("My Products", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                   const SizedBox(height: 10),
                   Expanded(
@@ -190,20 +212,13 @@ class _ProfilePageState extends State<ProfilePage> {
                                 children: [
                                   IconButton(
                                     icon: const Icon(Icons.attach_money, color: Colors.green),
-                                    onPressed: () async {
-                                      await FirebaseFirestore.instance.collection("sales").add({
-                                        "productId": id,
-                                        "sellerId": user!.uid,
-                                        "timestamp": Timestamp.now(),
-                                      });
-                                      setState(() {});
-                                    },
+                                    tooltip: "Record Sale",
+                                    onPressed: () => markProductAsSold(id),
                                   ),
                                   IconButton(
                                     icon: const Icon(Icons.delete, color: Colors.red),
-                                    onPressed: () async {
-                                      await deleteProduct(id);
-                                    },
+                                    tooltip: "Delete Product",
+                                    onPressed: () => deleteProduct(id),
                                   ),
                                 ],
                               ),
