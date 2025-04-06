@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:io';
 import 'file_helper.dart' if (dart.library.io) 'file_helper_io.dart';
+import 'recharge_points_page.dart'; // تأكد من استيراد الصفحة
 
 class AddProductPage extends StatefulWidget {
   const AddProductPage({super.key});
@@ -84,8 +85,28 @@ class _AddProductPageState extends State<AddProductPage> {
 
       if (count >= 1 && points < 1) {
         setState(() => _isUploading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Not enough points to add a product.")),
+
+        // 🟠 تنبيه احترافي وتحويل إلى صفحة الشحن
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text("رصيد النقاط غير كافٍ"),
+            content: const Text("لقد استهلكت المنتج المجاني. يُرجى شحن نقاطك لإضافة منتج جديد."),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("إلغاء"),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const RechargePointsPage()));
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange),
+                child: const Text("شحن النقاط"),
+              ),
+            ],
+          ),
         );
         return;
       }
