@@ -1,5 +1,3 @@
-/* الكود الكامل لـ ProfilePage محدث ببطاقة الرصيد الأنيقة */
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -31,12 +29,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   void initState() {
-    fetchUserData();
     super.initState();
+    fetchUserData();
   }
 
   Future<void> fetchUserData() async {
     if (user == null) return;
+    print("🔄 Loading user data for: ${user!.uid}");
     final doc = await FirebaseFirestore.instance.collection("users").doc(user!.uid).get();
     final data = doc.data();
     if (data != null) {
@@ -188,7 +187,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     ],
                   ),
 
-                  // بطاقة رصيد أنيقة
                   Container(
                     margin: const EdgeInsets.only(top: 20, bottom: 10),
                     padding: const EdgeInsets.all(16),
@@ -241,7 +239,8 @@ class _ProfilePageState extends State<ProfilePage> {
                   const Divider(height: 30),
                   const Text("My Products", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                   const SizedBox(height: 10),
-                  Expanded(
+                  SizedBox(
+                    height: 500,
                     child: StreamBuilder(
                       stream: FirebaseFirestore.instance
                           .collection('products')
