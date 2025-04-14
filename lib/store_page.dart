@@ -21,6 +21,7 @@ class _StorePageState extends State<StorePage> {
   int _currentIndex = 0;
   String _selectedCategory = "all";
   String _searchText = "";
+  String userName = "Labssa User";
 
   final List<Map<String, String>> _categories = [
     {'label': 'all', 'image': 'assets/images/categories/all.png'},
@@ -30,6 +31,25 @@ class _StorePageState extends State<StorePage> {
     {'label': 'T-shirt', 'image': 'assets/images/categories/tshirt.png'},
     {'label': 'accessoire', 'image': 'assets/images/categories/accessoire.png'},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchUserName();
+  }
+
+  Future<void> fetchUserName() async {
+    final user = _auth.currentUser;
+    if (user != null) {
+      final doc = await FirebaseFirestore.instance.collection("users").doc(user.uid).get();
+      final data = doc.data();
+      if (data != null && data.containsKey("name")) {
+        setState(() {
+          userName = data["name"];
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,9 +90,9 @@ class _StorePageState extends State<StorePage> {
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text("Hello, Welcome 👋", style: TextStyle(fontSize: 16, color: Colors.grey)),
-                  Text("Labssa User", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                children: [
+                  const Text("Hello, Welcome 👋", style: TextStyle(fontSize: 16, color: Colors.grey)),
+                  Text(userName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -212,7 +232,8 @@ class ProductList extends StatelessWidget {
             final data = products[index].data() as Map<String, dynamic>;
             return GestureDetector(
               onTap: () {
-                Navigator.push(context,
+                Navigator.push(
+                  context,
                   MaterialPageRoute(builder: (_) => ProductDetailsPage(productData: data)),
                 );
               },

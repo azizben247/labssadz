@@ -1,3 +1,5 @@
+/* الكود الكامل لـ ProfilePage محدث ببطاقة الرصيد الأنيقة */
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,6 +10,10 @@ import 'dart:io';
 
 import 'product_details_page.dart';
 import 'recharge_points_page.dart';
+import 'my_account_page.dart';
+import 'notifications_page.dart';
+import 'settings_page.dart';
+import 'help_center_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -53,21 +59,26 @@ class _ProfilePageState extends State<ProfilePage> {
     final downloadUrl = await ref.getDownloadURL();
 
     await FirebaseFirestore.instance.collection("users").doc(user!.uid).update({
-      "imageUrl": downloadUrl
+      "imageUrl": downloadUrl,
     });
 
-    setState(() => imageUrl = downloadUrl);
+    setState(() {
+      imageUrl = "$downloadUrl?update=${DateTime.now().millisecondsSinceEpoch}";
+    });
   }
 
   Future<void> updateName(String newName) async {
     await FirebaseFirestore.instance.collection("users").doc(user!.uid).update({
-      "name": newName
+      "name": newName,
     });
     setState(() => name = newName);
   }
 
   Future<void> deleteProduct(String productId) async {
     await FirebaseFirestore.instance.collection('products').doc(productId).delete();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("✅ Product deleted")),
+    );
   }
 
   Future<void> markProductAsSold(String productId) async {
@@ -77,19 +88,24 @@ class _ProfilePageState extends State<ProfilePage> {
       "timestamp": Timestamp.now(),
     });
 
-    // نقاط: أول عملية بيع مجانية
-    final snapshot = await FirebaseFirestore.instance.collection('sales')
-        .where('sellerId', isEqualTo: user!.uid).get();
+    final snapshot = await FirebaseFirestore.instance
+        .collection('sales')
+        .where('sellerId', isEqualTo: user!.uid)
+        .get();
 
     int count = snapshot.docs.length;
 
     if (count > 1) {
       int newPoints = (count - 1) * 10;
       await FirebaseFirestore.instance.collection("users").doc(user!.uid).update({
-        "points": newPoints
+        "points": newPoints,
       });
       setState(() => points = newPoints);
     }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("✅ Sale recorded")),
+    );
   }
 
   @override
@@ -103,22 +119,39 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Padding(
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ✅ صورة واسم المستخدم
                   Row(
                     children: [
-                      GestureDetector(
-                        onTap: pickAndUploadImage,
-                        child: CircleAvatar(
-                          radius: 35,
-                          backgroundImage: imageUrl != null
-                              ? NetworkImage(imageUrl!)
-                              : const AssetImage('assets/images/default_avatar.png') as ImageProvider,
-                        ),
+                      Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 40,
+                            backgroundColor: Colors.grey[200],
+                            backgroundImage: imageUrl != null && imageUrl!.isNotEmpty
+                                ? CachedNetworkImageProvider("$imageUrl?updated=${DateTime.now().millisecondsSinceEpoch}")
+                                : const AssetImage('assets/images/default_avatar.png') as ImageProvider,
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: GestureDetector(
+                              onTap: pickAndUploadImage,
+                              child: Container(
+                                padding: const EdgeInsets.all(5),
+                                decoration: const BoxDecoration(
+                                  color: Colors.deepOrange,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.edit, color: Colors.white, size: 18),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -129,7 +162,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.edit, size: 20),
+                              icon: const Icon(Icons.edit),
                               onPressed: () async {
                                 final controller = TextEditingController(text: name);
                                 final newName = await showDialog<String>(
@@ -152,25 +185,53 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                           ],
                         ),
-                      )
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 20),
 
-                  // ✅ النقاط
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildStat("Points", points),
-                    ],
+                  // بطاقة رصيد أنيقة
+                  Container(
+                    margin: const EdgeInsets.only(top: 20, bottom: 10),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.deepOrange,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("رصيدك الحالي", style: TextStyle(color: Colors.white70, fontSize: 14)),
+                            const SizedBox(height: 4),
+                            Text(
+                              "$points نقطة",
+                              style: const TextStyle(fontSize: 22, color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        const Icon(Icons.account_balance_wallet, color: Colors.white, size: 36),
+                      ],
+                    ),
                   ),
 
                   const Divider(height: 30),
-                  // ✅ خيارات
-                  _buildOption("My Account", Icons.person),
-                  _buildOption("Notifications", Icons.notifications),
-                  _buildOption("Settings", Icons.settings),
-                  _buildOption("Help Center", Icons.help),
+                  _buildOption("My Account", Icons.person, onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const MyAccountPage()));
+                  }),
+                  _buildOption("Notifications", Icons.notifications, onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsPage()));
+                  }),
+                  _buildOption("Settings", Icons.settings, onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsPage()));
+                  }),
+                  _buildOption("Help Center", Icons.help, onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpCenterPage()));
+                  }),
                   _buildOption("Recharge Points", Icons.credit_score, onTap: () {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const RechargePointsPage()));
                   }),
@@ -179,8 +240,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     Navigator.of(context).pop();
                   }),
                   const Divider(height: 30),
-
-                  // ✅ المنتجات الخاصة بالمستخدم
                   const Text("My Products", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                   const SizedBox(height: 10),
                   Expanded(
@@ -204,9 +263,9 @@ class _ProfilePageState extends State<ProfilePage> {
                               title: Text(product['name']),
                               subtitle: Text("${product['price']} DA"),
                               onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => ProductDetailsPage(productData: product))),
+                                context,
+                                MaterialPageRoute(builder: (_) => ProductDetailsPage(productData: product)),
+                              ),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -227,7 +286,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         );
                       },
                     ),
-                  )
+                  ),
                 ],
               ),
             ),
