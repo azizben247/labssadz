@@ -2,55 +2,17 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'store_page.dart';
-import 'profile_page.dart';
-import 'settings_page.dart';
+import 'store_page.dart'; // ✅ صفحة المتجر الرئيسية
+import 'profile_page.dart'; // ✅ صفحة البروفايل
+import 'settings_page.dart'; // ✅ صفحة الإعدادات
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // ✅ هذا هو المطلوب
-
-
-List<Map<String, dynamic>> wishlistItems = [];
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
-  // 🔔 طلب صلاحية الإشعارات وتسجيل التوكن
-  await setupPushNotifications();
-
   runApp(const ClothingApp());
-}
-
-Future<void> setupPushNotifications() async {
-  FirebaseMessaging messaging = FirebaseMessaging.instance;
-  NotificationSettings settings = await messaging.requestPermission();
-
-  if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-    print('✅ الإشعارات مفعّلة');
-    String? token = await messaging.getToken();
-    print('🔔 FCM Token: $token');
-
-    // تخزين التوكن في Firestore إن كان المستخدم مسجلاً دخوله
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null && token != null) {
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-        'fcmToken': token,
-      });
-    }
-  } else {
-    print('❌ تم رفض الإشعارات');
-  }
-
-  FirebaseMessaging.onMessage.listen((message) {
-    print('📩 إشعار داخل التطبيق: ${message.notification?.title}');
-  });
-
-  FirebaseMessaging.onMessageOpenedApp.listen((message) {
-    print('✅ المستخدم فتح الإشعار');
-  });
 }
 
 class ClothingApp extends StatelessWidget {
@@ -61,7 +23,7 @@ class ClothingApp extends StatelessWidget {
     return MaterialApp(
       title: 'Labssa DZ',
       theme: ThemeData(
-        primaryColor: Colors.deepOrange,
+        primaryColor: Colors.deepOrange, // ✅ لون جذاب
         scaffoldBackgroundColor: Colors.white,
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.deepOrange,
@@ -81,6 +43,7 @@ class ClothingApp extends StatelessWidget {
   }
 }
 
+// ✅ شاشة البداية (Splash Screen)
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -158,3 +121,5 @@ class _SplashScreenState extends State<SplashScreen>
     super.dispose();
   }
 }
+
+List<Map<String, dynamic>> wishlistItems = [];
