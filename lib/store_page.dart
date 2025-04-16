@@ -9,6 +9,8 @@ import 'wishlist_page.dart';
 import 'product_details_page.dart';
 import 'login_page.dart';
 import 'add_product_page.dart';
+import 'dart:async';
+
 
 class StorePage extends StatefulWidget {
   const StorePage({super.key});
@@ -22,6 +24,8 @@ class _StorePageState extends State<StorePage> {
   String _selectedCategory = "all";
   String _searchText = "";
   String userName = "Labssa User";
+  StreamSubscription<User?>? _authSubscription;
+  String? userImage;
 
   final List<Map<String, String>> _categories = [
     {'label': 'all', 'image': 'assets/images/categories/all.png'},
@@ -35,8 +39,22 @@ class _StorePageState extends State<StorePage> {
   @override
   void initState() {
     super.initState();
-    fetchUserName();
+
+    // Listen to auth state changes
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user == null) {
+        setState(() {
+          userName = "Labssa User";
+          userImage = null;
+        });
+      } else {
+        fetchUserName();
+      }
+    });
+
+    fetchUserName(); // Initial fetch
   }
+
 
   Future<void> fetchUserName() async {
     final user = _auth.currentUser;
@@ -46,6 +64,7 @@ class _StorePageState extends State<StorePage> {
       if (data != null && data.containsKey("name")) {
         setState(() {
           userName = data["name"];
+          userImage = data["imageUrl"]; 
         });
       }
     }
@@ -69,11 +88,18 @@ class _StorePageState extends State<StorePage> {
             if (user != null)
               GestureDetector(
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage())),
-                child: const CircleAvatar(
-                  backgroundImage: AssetImage('assets/images/default_avatar.png'),
-                  radius: 18,
-                ),
-              )
+                child: userImage != null
+                  ? CircleAvatar(
+                      backgroundImage: NetworkImage(userImage!),
+                      radius: 18,
+                    )
+                  : const CircleAvatar(
+                      backgroundColor: Colors.white,
+                      radius: 18,
+                      child: Icon(Icons.person, color: Colors.deepOrange),
+                    ),
+
+                )
             else
               TextButton(
                 onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginPage())),
@@ -165,11 +191,21 @@ class _StorePageState extends State<StorePage> {
         selectedItemColor: Colors.deepOrange,
         unselectedItemColor: Colors.grey,
         onTap: (index) {
+          final user = FirebaseAuth.instance.currentUser;
           setState(() => _currentIndex = index);
+
           if (index == 1) {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const WishlistPage()));
+            if (user != null) {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const WishlistPage()));
+            } else {
+              _showLoginRequiredDialog();
+            }
           } else if (index == 2) {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage()));
+            if (user != null) {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage()));
+            } else {
+              _showLoginRequiredDialog();
+            }
           }
         },
         items: const [
@@ -187,6 +223,37 @@ class _StorePageState extends State<StorePage> {
           : null,
     );
   }
+
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _showLoginRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("تسجيل الدخول مطلوب"),
+        content: const Text("الرجاء تسجيل الدخول للوصول إلى هذه الصفحة."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("إلغاء"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginPage()));
+            },
+            child: const Text("تسجيل الدخول"),
+          ),
+        ],
+      ),
+    );
+  }
+
 }
 
 class ProductList extends StatelessWidget {
