@@ -81,30 +81,20 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> markProductAsSold(String productId) async {
-    await FirebaseFirestore.instance.collection('sales').add({
-      "productId": productId,
-      "sellerId": user!.uid,
-      "timestamp": Timestamp.now(),
-    });
-
-    final snapshot = await FirebaseFirestore.instance
-        .collection('sales')
-        .where('sellerId', isEqualTo: user!.uid)
-        .get();
-
-    int count = snapshot.docs.length;
-
-    if (count > 1) {
-      int newPoints = (count - 1) * 10;
-      await FirebaseFirestore.instance.collection("users").doc(user!.uid).update({
-        "points": newPoints,
+    try {
+      await FirebaseFirestore.instance.collection('products').doc(productId).update({
+        "sold": true,
       });
-      setState(() => points = newPoints);
-    }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("✅ Sale recorded")),
-    );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("✅ تم تسجيل البيع")),
+      );
+    } catch (e) {
+      print("❌ Error marking product as sold: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("❌ فشل تسجيل البيع")),
+      );
+    }
   }
 
   @override
@@ -258,8 +248,23 @@ class _ProfilePageState extends State<ProfilePage> {
                               leading: CircleAvatar(
                                 backgroundImage: CachedNetworkImageProvider(product['imageUrl']),
                               ),
-                              title: Text(product['name']),
+                              title: Row(
+                                children: [
+                                  Text(product['name']),
+                                  const SizedBox(width: 6),
+                                  if (product['sold'] == true)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Text("SOLD", style: TextStyle(color: Colors.white, fontSize: 12)),
+                                    ),
+                                ],
+                              ),
                               subtitle: Text("${product['price']} DA"),
+
                               onTap: () => Navigator.push(
                                 context,
                                 MaterialPageRoute(builder: (_) => ProductDetailsPage(productData: product)),
@@ -267,11 +272,12 @@ class _ProfilePageState extends State<ProfilePage> {
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.attach_money, color: Colors.green),
-                                    tooltip: "Record Sale",
-                                    onPressed: () => markProductAsSold(id),
-                                  ),
+                                  if (product['sold'] != true)
+                                    IconButton(
+                                      icon: const Icon(Icons.attach_money, color: Colors.green),
+                                      tooltip: "Record Sale",
+                                      onPressed: () => markProductAsSold(id),
+                                    ),
                                   IconButton(
                                     icon: const Icon(Icons.delete, color: Colors.red),
                                     tooltip: "Delete Product",
@@ -279,6 +285,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                   ),
                                 ],
                               ),
+
                             );
                           },
                         );

@@ -281,10 +281,12 @@ class ProductList extends StatelessWidget {
         final products = snapshot.data!.docs.where((doc) {
           final data = doc.data() as Map<String, dynamic>;
           final name = data['name']?.toString().toLowerCase() ?? '';
+          final isSold = data['sold'] == true;
           final matchesSearch = searchText.isEmpty || name.contains(searchText);
           final matchesCategory = category == "all" || data['category'] == category;
-          return matchesSearch && matchesCategory;
+          return matchesSearch && matchesCategory && !isSold;
         }).toList();
+
 
         return GridView.builder(
           padding: const EdgeInsets.all(10),
